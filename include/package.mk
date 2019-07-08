@@ -53,14 +53,26 @@ endif
 
 include $(INCLUDE_DIR)/quilt.mk
 
-find_library_dependencies = $(wildcard $(patsubst %,$(STAGING_DIR)/pkginfo/%.version, \
-	$(filter-out $(BUILD_PACKAGES),$(foreach dep, \
-		$(filter-out @%, $(patsubst +%,%,$(1))), \
-		$(if $(findstring :,$(dep)), \
-			$(word 2,$(subst :,$(space),$(dep))), \
-			$(dep) \
-		) \
-	))))
+find_library_dependencies = \
+	$(wildcard $(patsubst %,$(STAGING_DIR)/pkginfo/%.version, \
+		$(sort $(foreach dep4, \
+			$(sort $(foreach dep3, \
+				$(sort $(foreach dep2, \
+					$(sort $(foreach dep1, \
+						$(sort $(foreach dep0, \
+							$(Package/$(1)/depends), \
+							$(Package/$(dep0)/depends) $(dep0) \
+						)), \
+						$(Package/$(dep1)/depends) $(dep1) \
+					)), \
+					$(Package/$(dep2)/depends) $(dep2) \
+				)), \
+				$(Package/$(dep3)/depends) $(dep3) \
+			)), \
+			$(Package/$(dep4)/depends) $(dep4) \
+		)), \
+	))
+
 
 PKG_DIR_NAME:=$(lastword $(subst /,$(space),$(CURDIR)))
 STAMP_NO_AUTOREBUILD=$(wildcard $(PKG_BUILD_DIR)/.no_autorebuild)
@@ -81,9 +93,10 @@ STAGING_FILES_LIST:=$(PKG_DIR_NAME)$(if $(BUILD_VARIANT),.$(BUILD_VARIANT),).lis
 define CleanStaging
 	rm -f $(STAMP_INSTALLED)
 	@-(\
-		cd "$(STAGING_DIR)"; \
-		if [ -f packages/$(STAGING_FILES_LIST) ]; then \
-			cat packages/$(STAGING_FILES_LIST) | xargs -r rm -f 2>/dev/null; \
+		if [ -f $(STAGING_DIR)/packages/$(STAGING_FILES_LIST) ]; then \
+			$(SCRIPT_DIR)/clean-package.sh \
+				"$(STAGING_DIR)/packages/$(STAGING_FILES_LIST)" \
+				"$(STAGING_DIR)"; \
 		fi; \
 	)
 endef
@@ -257,7 +270,7 @@ endef
 endif
 
   BUILD_PACKAGES += $(1)
-  $(STAMP_PREPARED): $$(if $(QUILT)$(DUMP),,$(call find_library_dependencies,$(DEPENDS)))
+  $(STAMP_PREPARED): $$(if $(QUILT)$(DUMP),,$(call find_library_dependencies,$(1)))
 
   $(foreach FIELD, TITLE CATEGORY SECTION VERSION,
     ifeq ($($(FIELD)),)
